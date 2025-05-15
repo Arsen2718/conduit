@@ -143,9 +143,9 @@ int main() {
 
         if (choice == 1) {
 
-            printf("Enter sourcefile path (max 255 chars)\n");
+            printf("Enter source file path (max 255 chars)\n");
             capture = scanf("%255s", in);
-            printf("Enter outputfile path (max 255 chars)\n");
+            printf("Enter output video path (path must end with .mov,max 255 chars)\n");
             capture = scanf("%255s", out);
 
             readtoparams encode; encode.infiledir = in; encode.outvideodir = out;
