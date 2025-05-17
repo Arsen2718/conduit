@@ -47,7 +47,7 @@ typedef struct threadparamspipe_t {
     char* outfiledir = NULL;
     atomic_int shared_value = 0;
     atomic_bool has_ended = false;
-    std::list<AVPacket*> pnglist_p;
+    AVPacketPtr* pnglist_p = NULL;
 
 }writebackparams;
 
@@ -106,13 +106,14 @@ typedef struct readtoparamsthread_t {
 
 bytes_6 decode_blocks_by_offset(gdImagePtr block, int offset_x, int offset_y, size_t page);
 size_t freadbch(void* buffer, size_t element_size, size_t element_count, FILE* stream);
-
+int64_t probevideo(char* invideodir);
+void menu();
 
 void readpagestoram(readtoparams& params);
 void proccesspagereader(readtoparams& params, atomic_int& window_size, size_t pos, size_t eof_pos);
 
 
-void pushpagestoram(char* invideodir, char* returningfiledir, std::list<AVPacket*>& pnglist_p, atomic_int& count, atomic_bool& hasended_p);
+void pushpagestoram(char* invideodir, char* returningfiledir, AVPacketPtr* pnglist_p, atomic_int& count, atomic_bool& hasended_p);
 
 void writefromrampagesthreaded(writebackparams* params);
 void proccesspage(AVPacket*& packet, size_t page, char* returningfiledir, size_t pos, atomic_int& win_size);
@@ -133,8 +134,16 @@ void createvideo(readtoparams& params);
 
 int main() {
 
+    menu();
+
+    return 0;
+
+}
+
+void menu() {
+
     bool exit = false;
-    int choice = 0;   
+    int choice = 0;
 
     do {
         char out[256]; char in[256];
@@ -149,7 +158,7 @@ int main() {
             capture = scanf("%255s", out);
 
             readtoparams encode; encode.infiledir = in; encode.outvideodir = out;
-            pipelinedramvideocreate(&encode);               
+            pipelinedramvideocreate(&encode);
         }
 
         else if (choice == 2) {
@@ -175,9 +184,8 @@ int main() {
 
     } while (!exit);
 
-
-    return 0;
 }
+
 
 void readpagestoram(readtoparams& params) {    
     
@@ -672,7 +680,7 @@ void pipelinedramvideocreate(void* args) {
 }
 
 
-void pushpagestoram(char* invideodir, char* returningfiledir, std::list<AVPacket*>& pnglist_p,atomic_int& count, atomic_bool& hasended_p) {
+void pushpagestoram(char* invideodir, char* returningfiledir, AVPacketPtr* pnglist_p,atomic_int& count, atomic_bool& hasended_p) {
 
     // Initialize all pointers to NULL
     AVFormatContext* fmt_ctx = NULL;
@@ -846,7 +854,6 @@ void pushpagestoram(char* invideodir, char* returningfiledir, std::list<AVPacket
     }
 
     ret = av_read_frame(fmt_ctx, pkt);
-    //printf("%d\n", ret);
 
     // Processing loop
     while (!ret) {
@@ -896,13 +903,13 @@ void pushpagestoram(char* invideodir, char* returningfiledir, std::list<AVPacket
                         }
 
                         result = av_packet_clone(pkt);
-                        pnglist_p.push_back(result);
-                        
+                        pnglist_p[frame_count] = result;
+
                         //if (!(frame_count % 100)) {
                         //
                         //  printf("%d\n", frame_count);
                         //}
-                        
+
                         frame_count++;
                         count.fetch_add(1);
                     }
@@ -959,7 +966,7 @@ void pushpagestoram(char* invideodir, char* returningfiledir, std::list<AVPacket
 
                 //AVPacket* result = NULL;
                 result = av_packet_clone(pkt);
-                pnglist_p.push_back(result);
+                pnglist_p[frame_count] = result;
 
                 if (!(frame_count % 100)) {
 
@@ -985,7 +992,7 @@ void pushpagestoram(char* invideodir, char* returningfiledir, std::list<AVPacket
 
         //AVPacket* result = NULL;
         result = av_packet_clone(pkt);
-        pnglist_p.push_back(result);
+        pnglist_p[frame_count] = result;
 
         if (!(frame_count % 100)) {
 
@@ -1024,13 +1031,13 @@ void writefromrampagesthreaded(writebackparams* params) {
             outthread = new pageproccessorparams;   
 
             outthread->inthread = new thrd_t;
-            outthread->packet = params->pnglist_p.front();
+            outthread->packet = params->pnglist_p[k];
             outthread->page = k;
             outthread->pos = k * 10720 * 6;
             outthread->returningfiledir = params->outfiledir;
             outthread->win_size = &windowsize;
             
-            params->pnglist_p.pop_front();
+            //params->pnglist_p.pop_front();
             windowsize.fetch_add(1);
             thrd_create(outthread->inthread, proccesspagecaller, outthread);
             thrd_detach(*(outthread->inthread));
@@ -1041,11 +1048,11 @@ void writefromrampagesthreaded(writebackparams* params) {
         else if (k == params->shared_value && params->has_ended)
             break;
 
-        else {
+        /*else {
         
           printf("k = %zu, hasended= %d, windowsize= %d\n", k, params->has_ended.load(), windowsize.load()); //debug needed here since sometimes this thread gets clogged
 
-        }
+        }*/
     }
 
     while (windowsize != 0) {}
@@ -1205,8 +1212,55 @@ size_t freadbch(void* buffer, size_t element_size, size_t element_count, FILE* s
     _fseeki64(stream, -1 * total_element_count, SEEK_CUR);
     return return_val;
 }
+int64_t probevideo(char* invideodir) {
+
+    // Initialize all pointers to NULL
+    AVFormatContext* fmt_ctx = NULL;
+    const AVCodec* dec_codec = NULL;
+    int video_stream_idx = -1;
+    int ret = 0;
+    int64_t durationinsec = 0;
+    int64_t durationinsecmod = 0;
+    int64_t coefficentforonesecond = 0;
+    int64_t total_frames = 0;
+
+    // Open input file
+    ret = avformat_open_input(&fmt_ctx, invideodir, NULL, NULL);
+    if (ret < 0) {
+        fprintf(stderr, "Could not open input file\n");
+        goto final_cleanup;
+    }
+
+    ret = avformat_find_stream_info(fmt_ctx, NULL);
+    if (ret < 0) {
+        fprintf(stderr, "Could not find stream information\n");
+        goto final_cleanup;
+    }
+
+    durationinsec = (fmt_ctx->duration) / AV_TIME_BASE;
+    durationinsecmod = fmt_ctx->duration % AV_TIME_BASE;
+    if (durationinsecmod) {
+        coefficentforonesecond = AV_TIME_BASE / durationinsecmod;
+        total_frames = 60 * durationinsec + (60 / coefficentforonesecond);
+    }
+    else {
+        total_frames = 60 * durationinsec;
+    }
+
+    total_frames -= total_frames % 60;
+    total_frames++;
+
+final_cleanup:
+    avformat_close_input(&fmt_ctx);
+    return total_frames;
+}
 
 void pipelinedramwriteback(void* args) {
+
+    writebackparams* params = (writebackparams*)args;
+    int64_t size = probevideo(params->invideodir);
+
+    params->pnglist_p = new AVPacketPtr[size];
 
     thrd_t thrd1, thrd2;
     thrd_create(&thrd1, pushpagestoramcaller, args);
@@ -1215,4 +1269,10 @@ void pipelinedramwriteback(void* args) {
     printf("first thread joined\n");
     thrd_join(thrd2, NULL);
     printf("second thread joined\n");
+
+    delete[] params->pnglist_p;
 }
+
+
+
+
