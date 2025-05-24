@@ -1,12 +1,8 @@
 ﻿#include <gd.h>
-#include <stdio.h>
-#include <cstring>
 #include <io.h>
 #include <fcntl.h>
 #include <stdatomic.h>
 #include <threads.h>
-#include <list>
-#include <vector>
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -148,14 +144,14 @@ void menu() {
     do {
         char out[256]; char in[256];
         printf("Encode (1), Decode (2), Exit(3)\n");
-        int capture = scanf("%d", &choice);
+        int capture = scanf("%d", &choice); capture = getchar();
 
         if (choice == 1) {
 
             printf("Enter source file path (max 255 chars)\n");
-            capture = scanf("%255s", in);
-            printf("Enter output video path (path must end with .mov, max 255 chars)\n");
-            capture = scanf("%255s", out);
+            fgets(in, 255, stdin); in[strcspn(in, "\n")] = '\0';
+            printf("Enter output video path (path must end with .mov, max 255 chars, !no pqges)\n");
+            fgets(out, 255, stdin); out[strcspn(out, "\n")] = '\0';
 
             readtoparams encode; encode.infiledir = in; encode.outvideodir = out;
             pipelinedramvideocreate(&encode);
@@ -164,9 +160,9 @@ void menu() {
         else if (choice == 2) {
 
             printf("Enter encoded video path (max 255 chars)\n");
-            capture = scanf("%255s", in);
+            fgets(in, 255, stdin); in[strcspn(in, "\n")] = '\0';
             printf("Enter returning file path (make sure to use the correct container, max 255 chars)\n");
-            capture = scanf("%255s", out);
+            fgets(out, 255, stdin); out[strcspn(out, "\n")] = '\0';
 
             writebackparams decode; decode.invideodir = in; decode.outfiledir = out;
             pipelinedramwriteback(&decode);
