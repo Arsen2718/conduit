@@ -14,6 +14,7 @@ Platform and Requirements
 
 Developed on 64-bit Windows; it may not run on Linux, but you can try.
 Designed to be standalone—no FFmpeg installation required.
+Support for AVX512 instruction set.
 
 Notes
 
