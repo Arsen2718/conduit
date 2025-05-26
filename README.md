@@ -12,13 +12,13 @@ Conduit uses a PNG-based video encoder, allowing it to produce videos that are s
 
 Platform and Requirements
 
-Developed on 64-bit Windows; it may not run on Linux, but you can try.
-Designed to be standalone—no FFmpeg installation required.
-Support for AVX512 instruction set.
+Developed on 64-bit Windows; it may not run on Linux, but you can try.  
+Designed to be standalone—no FFmpeg installation required.  
+Support for AVX512 instruction set.  
 
 Notes
 
-Make sure to use the .mov format for output when encoding.
-Do not use quotation marks around the input file path; only use characters accepted by fopen().
-Always decode into the same format as the original file (e.g., if you encoded a .zip file, decode into a .zip file).
+Make sure to use the .mov format for output when encoding.  
+Do not use quotation marks around the input file path; only use characters accepted by fopen().  
+Always decode into the same format as the original file (e.g., if you encoded a .zip file, decode into a .zip file).  
 If you can’t play back the resulting .mov file, use mpv: https://mpv.io
