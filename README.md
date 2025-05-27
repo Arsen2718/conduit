@@ -1,3 +1,4 @@
+![Conduit](https://github.com/user-attachments/assets/56a23887-504f-425a-9459-a21aa5ce753f)
 Conduit is a proof-of-concept tool designed to encode arbitrary data into video format, enabling the resulting video to be transferred via streaming platforms. While the primary purpose of the tool is to transfer files from one device to another, it can theoretically be used as a storage medium. However, this may or may not be within the Terms of Service (TOS) of the respective streaming platform—use the tool in this manner at your own discretion.
 
 Inspiration
